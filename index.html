@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数学试卷生成器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', 'Microsoft YaHei', 'SimSun', sans-serif;
+    }
+    #paper, #answers {
+      font-size: 16px;
+      padding: 1.5rem;
+      border: 1px solid #ccc;
+      background-color: white;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center min-h-screen">
+  <div class="w-full max-w-3xl p-6 bg-white rounded-lg shadow-lg mt-6">
+    <h1 class="text-2xl font-bold text-center text-blue-600 mb-4">数学试卷生成器</h1>
+    <p class="text-center text-gray-600 mb-2">选择年级和难度，生成试卷</p>
+    <p class="text-sm text-gray-500 text-center mb-4">建议完成时间：30-45分钟</p>
+    <div class="flex justify-center space-x-4 mb-6">
+      <select id="grade" class="p-2 border rounded">
+        <option value="1">小学一年级</option>
+        <option value="2">小学二年级</option>
+        <option value="3">小学三年级</option>
+        <option value="4">小学四年级</option>
+        <option value="5" selected>小学五年级</option>
+        <option value="6">小学六年级</option>
+        <option value="7">初中一年级</option>
+        <option value="8">初中二年级</option>
+        <option value="9">初中三年级</option>
+        <option value="10">高中一年级</option>
+        <option value="11">高中二年级</option>
+        <option value="12">高中三年级</option>
+      </select>
+      <select id="difficulty" class="p-2 border rounded">
+        <option value="low">低</option>
+        <option value="medium" selected>中</option>
+        <option value="high">高</option>
+      </select>
+      <button id="generateBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition transform hover:scale-105">生成试卷</button>
+    </div>
+    <div class="flex justify-center space-x-4 mb-6">
+      <button id="showAnswersBtn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 hidden transition transform hover:scale-105">查看答案</button>
+      <button id="downloadPaperBtn" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 hidden transition transform hover:scale-105">下载试卷PDF</button>
+      <button id="downloadAnswersBtn" class="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 hidden transition transform hover:scale-105">下载答案PDF</button>
+    </div>
+    <div id="paper" class="space-y-4"></div>
+    <div id="answers" class="hidden mt-6"></div>
+  </div>
+
+  <script>
+    async function fetchLLMGeneratedPaper(grade, difficulty) {
+      const response = await fetch('/api/generate-paper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grade, difficulty })
+      });
+      return await response.json();
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+      const grade = parseInt(document.getElementById('grade').value);
+      const difficulty = document.getElementById('difficulty').value;
+      const data = await fetchLLMGeneratedPaper(grade, difficulty);
+
+      const paperDiv = document.getElementById('paper');
+      const answersDiv = document.getElementById('answers');
+      paperDiv.innerHTML = `<h2 class="text-lg font-bold">数学试卷 (年级: ${grade}, 难度: ${difficulty})</h2>`;
+      data.questions.forEach((q, i) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'p-2 border-b';
+        qDiv.innerHTML = `<span class="font-bold">第${i + 1}题:</span> ${q}`;
+        paperDiv.appendChild(qDiv);
+      });
+
+      answersDiv.innerHTML = '<h2 class="text-lg font-bold text-green-600">答案</h2>';
+      data.answers.forEach((a, i) => {
+        const aDiv = document.createElement('div');
+        aDiv.innerHTML = `<span class="font-bold">第${i + 1}题:</span> ${a}`;
+        answersDiv.appendChild(aDiv);
+      });
+
+      document.getElementById('showAnswersBtn').classList.remove('hidden');
+      document.getElementById('downloadPaperBtn').classList.remove('hidden');
+      document.getElementById('downloadAnswersBtn').classList.remove('hidden');
+
+      document.getElementById('downloadPaperBtn').onclick = () => {
+        html2pdf().from(paperDiv).set({
+          margin: 10,
+          filename: `math_paper_grade${grade}_${difficulty}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).save();
+      };
+
+      document.getElementById('downloadAnswersBtn').onclick = () => {
+        html2pdf().from(answersDiv).set({
+          margin: 10,
+          filename: `math_answers_grade${grade}_${difficulty}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).save();
+      };
+    });
+
+    document.getElementById('showAnswersBtn').addEventListener('click', () => {
+      document.getElementById('answers').classList.toggle('hidden');
+    });
+  </script>
+</body>
+</html>
